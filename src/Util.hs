@@ -1,9 +1,13 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Util(getFilters, createAuthorsWithArticles, writeJSON) where
 import Author
 import Article
 import Data.List
 import qualified Data.ByteString.Lazy.Char8 as C
 import Data.Aeson
+import qualified Data.Text as T
+import Data.Text(Text)
 
 printOneByOne :: Show a => [a] -> IO ()
 printOneByOne [] = return ()
@@ -17,20 +21,21 @@ getArticlesByAuthorID articles authorId = [x | x <- articles, _articleAuthorId x
 sortByCreationDate :: [Article] -> [Article]
 sortByCreationDate = sortOn _articleCreatedAt
 
-filterArticles :: [Article] -> [String] -> [Article]
+filterArticles :: [Article] -> [Text] -> [Article]
 filterArticles articles filters
   | "ratingGreater3" `elem` filters = filterArticles [x | x <- articles, _articleRating x > 3] (delete "ratingGreater3" filters)
   | "first5" `elem` filters         = filterArticles (take 5 $ sortByCreationDate articles) (delete "first5" filters)
   | otherwise                       = articles
 
-createAuthorWithArticles :: Author -> [Article] -> [String] -> AuthorWithArticles
+createAuthorWithArticles :: Author -> [Article] -> [Text] -> AuthorWithArticles
 createAuthorWithArticles author articles filters = AuthorWithArticles (_authorId author) (_authorName author) (filterArticles (getArticlesByAuthorID articles (_authorId author)) filters)
 
-createAuthorsWithArticles :: [Author] -> [Article] -> [String] -> [AuthorWithArticles]
+createAuthorsWithArticles :: [Author] -> [Article] -> [Text] -> [AuthorWithArticles]
 createAuthorsWithArticles authors articles filters = [createAuthorWithArticles author articles filters | author <- authors]
 
-getFilters :: [String] -> [String]
-getFilters = Data.List.map (\x -> if "filter=" `isInfixOf` x then Data.List.drop 7 x else x)
+getFilters :: [String] -> [Text]
+getFilters = Data.List.map $ T.pack . getFilter
+              where getFilter x = if "filter=" `isInfixOf` x then Data.List.drop 7 x else x
 
 writeJSONOneByOne :: [AuthorWithArticles] -> IO ()
 writeJSONOneByOne [] = return ()
